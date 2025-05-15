@@ -37,6 +37,8 @@ const AppStack = () => (
     <Stack.Screen name="index" />
     <Stack.Screen name="login" />
     <Stack.Screen name="register" />
+    <Stack.Screen name="forgotpassword" />
+    <Stack.Screen name="resetpassword" />
   </Stack>
 );
 

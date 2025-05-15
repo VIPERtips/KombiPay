@@ -8,30 +8,25 @@ import Toast from "react-native-toast-message";
 import { useAuth } from "../src/contexts/auth-context";
 import { RegisterFormValues, registerSchema } from "../src/lib/schemas";
 
-const register = () => {
+const Register = () => {
   const { register, isLoading } = useAuth();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const { control, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      await register(values.name, values.email, values.password);
+      await register(values.name, values.email, values.password, values.confirmPassword);
       Toast.show({
         type: "success",
         text1: "Registration successful",
         text2: "Welcome to KombiPay!",
       });
-      router.replace("/");
+      router.replace("/home");
     } catch (error) {
       Toast.show({
         type: "error",
@@ -42,7 +37,7 @@ const register = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#1b3c6e]" style={{ paddingTop: insets.top }}>
+    <SafeAreaView className="flex-1 bg-blue-500" style={{ paddingTop: insets.top }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1 justify-center"
@@ -63,7 +58,7 @@ const register = () => {
               render={({ field: { onChange, value } }) => (
                 <View className="mb-4">
                   <TextInput
-                    className="border border-gray-300 rounded-full p-3"
+                    className={`border border-gray-300 rounded-full p-3`}
                     placeholder="Full Name"
                     value={value}
                     onChangeText={onChange}
@@ -79,7 +74,7 @@ const register = () => {
               render={({ field: { onChange, value } }) => (
                 <View className="mb-4">
                   <TextInput
-                    className="border border-gray-300 rounded-full p-3"
+                    className={`border border-gray-300 rounded-full p-3`}
                     placeholder="email@example.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
@@ -97,7 +92,7 @@ const register = () => {
               render={({ field: { onChange, value } }) => (
                 <View className="mb-4">
                   <TextInput
-                    className="border border-gray-300 rounded-full p-3"
+                    className={`border border-gray-300 rounded-full p-3`}
                     placeholder="Password"
                     secureTextEntry
                     value={value}
@@ -114,7 +109,7 @@ const register = () => {
               render={({ field: { onChange, value } }) => (
                 <View className="mb-6">
                   <TextInput
-                    className="border border-gray-300 rounded-full p-3"
+                    className={`border border-gray-300 rounded-full p-3`}
                     placeholder="Confirm Password"
                     secureTextEntry
                     value={value}
@@ -127,7 +122,7 @@ const register = () => {
 
             <TouchableOpacity
               onPress={handleSubmit(onSubmit)}
-              className="bg-kombi-green-dark py-4 rounded-full items-center mb-2"
+              className="bg-kombi-blue-light py-4 rounded-full items-center mb-2"
               disabled={isLoading}
               activeOpacity={0.8}
             >
@@ -156,4 +151,4 @@ const register = () => {
   );
 };
 
-export default register;
+export default Register;

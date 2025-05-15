@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { authService } from '../services/auth.service';
 
 export type User = {
-  id: string;
+  id: number;
   name: string;
   email: string;
-  balance: number;
+  balance?: number;
+  role: string;
 };
 
 type AuthContextType = {
@@ -13,19 +15,15 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  register: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
+  logout: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<string>;
+  resetPassword: (token: string, newPassword: string) => Promise<string>;
+  requestOtp: (email: string) => Promise<void>;
+  confirmOtp: (email: string, otp: string) => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Mock user data
-const MOCK_USER: User = {
-  id: "user-1",
-  name: "Tadiwa Blessed",
-  email: "tadiwa@example.com",
-  balance: 25.75,
-};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -33,51 +31,121 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const loadUser = async () => {
-      const storedUser = await AsyncStorage.getItem("kombiPayUser");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      try {
+        const storedUser = await AsyncStorage.getItem('kombiPayUser');
+        const token = await AsyncStorage.getItem('kombiPayToken');
+        if (storedUser && token) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Error loading user from storage:', error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     loadUser();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // For demo, just check if email contains "tadiwa" or "test"
-    if (email.includes("tadiwa") || email.includes("test")) {
-      setUser(MOCK_USER);
-      AsyncStorage.setItem("kombiPayUser", JSON.stringify(MOCK_USER));
-    } else {
-      throw new Error("Invalid credentials");
+    try {
+      const response = await authService.login({ email, password });
+      
+      if (response.success && response.data) {
+        const userData: User = {
+          id: response.data.id,
+          name: response.data.message || email,
+          email,
+          role: response.data.role,
+        };
+  
+        await AsyncStorage.setItem('kombiPayUser', JSON.stringify(userData));
+        await AsyncStorage.setItem('kombiPayToken', response.data.token);
+        await AsyncStorage.setItem('kombiPayRefreshToken', response.data.refreshToken);
+  
+        setUser(userData);
+      }
+    } catch (error: any) {
+      console.error('Login error:', error.message);
+      
+      // Handle OTP specific error
+      if (error.message === 'OTP_NOT_CONFIRMED') {
+        await AsyncStorage.setItem('pendingEmail', email);
+        throw new Error('Please confirm your OTP first');
+      }
+      
+      throw new Error(error.message || 'Login error');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const register = async (name: string, email: string, password: string) => {
+
+  const register = async (name: string, email: string, password: string, confirmPassword: string) => {
     setIsLoading(true);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // For demo purposes, create a new user with the provided details
-    const newUser = {
-      ...MOCK_USER,
-      name,
-      email,
-    };
-    
-    setUser(newUser);
-    AsyncStorage.setItem("kombiPayUser", JSON.stringify(newUser));
-    setIsLoading(false);
+    try {
+      const response = await authService.register({
+        email,
+        fullname: name,
+        password,
+        confirmPassword,
+      });
+
+      if (!response.success) {
+        throw new Error(response.data.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
+  const requestOtp = async (email: string) => {
+    try {
+      await authService.requestOtp(email);
+    } catch (error) {
+      console.error('OTP request error:', error);
+      throw error;
+    }
+  };
+
+  const confirmOtp = async (email: string, otp: string) => {
+    try {
+      const response = await authService.confirmOtp(email, otp);
+      return response.success;
+    } catch (error) {
+      console.error('OTP confirmation error:', error);
+      throw error;
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    try {
+      return await authService.forgotPassword(email);
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (token: string, newPassword: string) => {
+    try {
+      return await authService.resetPassword(token, newPassword);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
     setUser(null);
-    AsyncStorage.removeItem("kombiPayUser");
-    return Promise.resolve(); // so we can await it in the component
+    try {
+      await AsyncStorage.multiRemove(['kombiPayUser', 'kombiPayToken', 'kombiPayRefreshToken']);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
@@ -89,6 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        forgotPassword,
+        resetPassword,
+        requestOtp,
+        confirmOtp,
       }}
     >
       {children}
@@ -98,8 +170,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error('useAuth must be used inside AuthProvider');
   return context;
 };
