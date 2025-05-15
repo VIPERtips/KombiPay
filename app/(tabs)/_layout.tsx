@@ -75,7 +75,7 @@ export default function _layout() {
         }}
       />
 
-      <Tabs.Screen
+      {/*<Tabs.Screen
         name="darkmode"
         options={{
           tabBarIcon: ({ color, size }) => (
@@ -95,7 +95,7 @@ export default function _layout() {
             </TouchableOpacity>
           ),
         }}
-      />
+      />*/}
     </Tabs>
   );
 }
